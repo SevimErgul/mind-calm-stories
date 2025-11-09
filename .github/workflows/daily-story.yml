@@ -34,11 +34,12 @@ jobs:
 
           print("Requesting story from Hugging Face...")
 
-          model = "gpt2"  # İstersen değiştirebilirsin
+          model = "gpt2" # İstersen değiştirebilirsin
           prompt = "Write a short, relaxing 3-minute bedtime story for adults about peace, stars, and calm night."
 
           headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
-          api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
+          # 🚨 Bu satırı değiştirin 🚨
+          api_url = f"https://api-inference.huggingface.co/models/{model}" # Doğru genel API uç noktası
 
           response = requests.post(api_url, headers=headers, json={"inputs": prompt})
 
