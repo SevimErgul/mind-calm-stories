@@ -2,7 +2,7 @@ name: Daily AI Sleep Story Generator
 
 on:
   schedule:
-    - cron: "0 0 * * *" # Her gün UTC 00:00'da (Türkiye saatiyle 03:00) çalışır
+    - cron: "0 0 * * *" # Her gün UTC 00:00'da (Türkiye saatiyle 03:00)
   workflow_dispatch: # Manuel tetikleme
 
 jobs:
@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write # Push izni için
+      contents: write  # Push izni için
 
     steps:
       - name: Checkout repo
@@ -24,58 +24,46 @@ jobs:
       - name: Install dependencies
         run: pip install requests
 
-      # --- Yapay Zeka Hikayesi Oluşturma Adımı ---
       - name: Generate AI Sleep Story
         env:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
-          # Python kodunu YAML girintisinin dışına, tamamen sola dayayarak başlattık.
-          # Bu, "IndentationError" hatasını çözer.
           python - <<'PY'
-import requests, json, datetime, os
-from pathlib import Path
+          import requests, json, datetime, os
+          from pathlib import Path
 
-print("Requesting story from Hugging Face...")
+          print("Requesting story from Hugging Face...")
 
-# Hugging Face'in yeni API formatına uygun olarak model adı ayrı tutuldu
-model_name = "gpt2" 
-prompt = "Write a short, relaxing 3-minute bedtime story for adults about peace, stars, and calm night."
+          model = "gpt2"  # İstersen değiştirebilirsin
+          prompt = "Write a short, relaxing 3-minute bedtime story for adults about peace, stars, and calm night."
 
-headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
-# Hata mesajında belirtilen güncel API uç noktası
-api_url = "https://router.huggingface.co/hf-inference" 
+          headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
+          api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
 
-# Model adı ve prompt, istek gövdesine (payload) eklendi
-payload = {
-    "model": model_name,
-    "inputs": prompt
-}
+          response = requests.post(api_url, headers=headers, json={"inputs": prompt})
 
-response = requests.post(api_url, headers=headers, json=payload)
+          if response.status_code != 200:
+              print(f"❌ Error: {response.status_code} {response.text}")
+              exit(1)
 
-if response.status_code != 200:
-    print(f"❌ Error: {response.status_code} {response.text}")
-    exit(1)
+          try:
+              data = response.json()
+              story = data[0]["generated_text"]
+          except Exception as e:
+              print("❌ Failed to parse response:", e)
+              print(response.text)
+              exit(1)
 
-try:
-    data = response.json()
-    # GPT2 modelinin beklenen yanıt formatını kullanıyoruz
-    story = data[0]["generated_text"] 
-except Exception as e:
-    print("❌ Failed to parse response:", e)
-    print(response.text)
-    exit(1)
+          today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+          Path("stories").mkdir(exist_ok=True)
 
-today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-Path("stories").mkdir(exist_ok=True)
+          file_path = f"stories/{today}.txt"
+          with open(file_path, "w", encoding="utf-8") as f:
+              f.write(story)
 
-file_path = f"stories/{today}.txt"
-with open(file_path, "w", encoding="utf-8") as f:
-    f.write(story)
+          print(f"✅ Story saved to {file_path}")
+          PY
 
-print(f"✅ Story saved to {file_path}")
-PY
-      # --- Commit ve Push Adımı ---
       - name: Commit and push story
         run: |
           git config user.name "github-actions"
