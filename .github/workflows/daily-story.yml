@@ -1,0 +1,89 @@
+name: Generate Daily AI Sleep Story
+
+on:
+  schedule:
+    - cron: '5 0 * * *'   # Her gün UTC 00:05'te çalışır (Türkiye saatiyle 03:05 civarı)
+  workflow_dispatch:      # Manuel olarak da tetiklenebilir
+
+jobs:
+  generate_story:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: "3.10"
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Generate story with Hugging Face
+        env:
+          HF_TOKEN: ${{ secrets.HF_API_TOKEN }}
+        run: |
+          python - <<'PY'
+          import os, json, datetime, requests, textwrap
+
+          # === 1. Model seçimi ===
+          MODEL = "mistralai/Mistral-7B-Instruct-v0.2"
+          # Alternatif hızlı model istersen: "google/flan-t5-large" veya "gpt2"
+
+          # === 2. Prompt tanımı ===
+          prompt = textwrap.dedent("""
+          Write a calm, 250-word bedtime story for adults.
+          The story should help the listener relax, reduce anxiety, and feel peaceful.
+          Include gentle imagery (breeze, sea, warm light, calm breathing).
+          End with a soothing conclusion that signals rest and sleep.
+          Use simple English and soft tone.
+          """)
+
+          headers = {
+              "Authorization": f"Bearer {os.environ['HF_TOKEN']}",
+              "Content-Type": "application/json"
+          }
+
+          # === 3. Hugging Face API isteği ===
+          print("Requesting story from Hugging Face...")
+          api_url = f"https://api-inference.huggingface.co/models/{MODEL}"
+          response = requests.post(api_url, headers=headers, json={"inputs": prompt}, timeout=60)
+
+          if response.status_code != 200:
+              print("❌ Error:", response.status_code, response.text)
+              raise SystemExit(1)
+
+          data = response.json()
+
+          # === 4. Yanıtı çözümle ===
+          if isinstance(data, list) and "generated_text" in data[0]:
+              story_text = data[0]["generated_text"]
+          else:
+              story_text = str(data)
+
+          # === 5. Dosya kaydı ===
+          date_str = datetime.datetime.utcnow().date().isoformat()
+          os.makedirs("stories", exist_ok=True)
+          story = {
+              "date": date_str,
+              "title": "A Gentle Night - " + date_str,
+              "text": story_text.strip(),
+              "source": MODEL
+          }
+
+          path = f"stories/{date_str}.json"
+          with open(path, "w", encoding="utf-8") as f:
+              json.dump(story, f, ensure_ascii=False, indent=2)
+
+          print(f"✅ Story saved to {path}")
+          PY
+
+      - name: Commit and push story
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "actions@github.com"
+          git add stories/*.json
+          git commit -m "Add daily story $(date -u +%F)" || echo "No new story today"
+          git push
