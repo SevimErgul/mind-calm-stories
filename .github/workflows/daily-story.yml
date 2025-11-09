@@ -34,8 +34,8 @@ jobs:
 
           print("Requesting story from Hugging Face...")
 
-          model = "gpt2"  # İstersen değiştirebilirsin
-          prompt = "Write a short, relaxing 3-minute bedtime story for adults about peace, stars, and calm night."
+          model = "google/flan-t5-small"  # İstersen değiştirebilirsin
+          prompt = "Write a short, calming 3-minute bedtime story for adults about peace, stars, and calm night."
 
           headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
           api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
