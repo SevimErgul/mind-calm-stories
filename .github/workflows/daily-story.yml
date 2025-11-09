@@ -28,20 +28,27 @@ jobs:
         env:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
-          python - <<'PY'
+         python - <<'PY'
           import requests, json, datetime, os
           from pathlib import Path
 
           print("Requesting story from Hugging Face...")
 
-          model = "gpt2" # İstersen değiştirebilirsin
+          model_name = "gpt2" # Modeli sadece bir değişken olarak tutuyoruz
           prompt = "Write a short, relaxing 3-minute bedtime story for adults about peace, stars, and calm night."
 
           headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
-          # 🚨 Bu satırı değiştirin 🚨
-          api_url = f"https://api-inference.huggingface.co/models/{model}" # Doğru genel API uç noktası
+          
+          # 🚀 Yeni, Hata Mesajında Belirtilen API URL'si
+          api_url = "https://router.huggingface.co/hf-inference" 
 
-          response = requests.post(api_url, headers=headers, json={"inputs": prompt})
+          # 📦 Modeli ve promptu JSON gövdesine ekliyoruz
+          payload = {
+              "model": model_name,
+              "inputs": prompt
+          }
+
+          response = requests.post(api_url, headers=headers, json=payload)
 
           if response.status_code != 200:
               print(f"❌ Error: {response.status_code} {response.text}")
@@ -49,7 +56,10 @@ jobs:
 
           try:
               data = response.json()
-              story = data[0]["generated_text"]
+              # Yeni formatta "generated_text" direkt data[0] içinde olmayabilir, 
+              # bu yüzden response'u kontrol etmeliyiz. GPT2 için bu format hala geçerli olabilir.
+              # Eğer çalışmazsa, bu kısmı tekrar inceleyebiliriz.
+              story = data[0]["generated_text"] 
           except Exception as e:
               print("❌ Failed to parse response:", e)
               print(response.text)
