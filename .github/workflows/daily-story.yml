@@ -3,14 +3,13 @@ name: Daily AI Sleep Story Generator
 on:
   schedule:
     - cron: "0 0 * * *" # Her gün UTC 00:00'da (Türkiye saatiyle 03:00)
-  workflow_dispatch: # Manuel tetikleme
+  workflow_dispatch:
 
 jobs:
   generate-story:
     runs-on: ubuntu-latest
-
     permissions:
-      contents: write  # Push izni için
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -29,18 +28,20 @@ jobs:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
           python - <<'PY'
-          import requests, json, datetime, os
+          import requests, datetime, os
           from pathlib import Path
 
           print("Requesting story from Hugging Face...")
 
-          # MODEL ADINI BURADA DEĞİŞTİREBİLİRSİN
-          model = "google/flan-t5-small"
+          model = "google/flan-t5-small"  # 🔹 Tam model adı
           api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
 
-          prompt = """Write a short, relaxing bedtime story for adults about peace, stars, and gentle dreams. The story should be around 3 minutes long and help calm the mind."""
+          prompt = "Write a calming 3-minute bedtime story about stars and peace."
 
-          headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
+          headers = {
+              "Authorization": f"Bearer {os.environ['HF_API_TOKEN']}",
+              "Content-Type": "application/json"
+          }
 
           response = requests.post(api_url, headers=headers, json={"inputs": prompt})
 
@@ -48,14 +49,27 @@ jobs:
               print(f"❌ Error: {response.status_code} {response.text}")
               exit(1)
 
-          try:
-              data = response.json()
-              if isinstance(data, list) and "generated_text" in data[0]:
-                  story = data[0]["generated_text"]
-              elif isinstance(data, dict) and "generated_text" in data:
-                  story = data["generated_text"]
-              else:
-                  story = str(data)
-          except Exception as e:
-              print("❌ Failed to parse response:", e)
-              print(response.text)
+          data = response.json()
+          story = ""
+          if isinstance(data, list) and "generated_text" in data[0]:
+              story = data[0]["generated_text"]
+          else:
+              story = str(data)
+
+          today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
+          Path("stories").mkdir(exist_ok=True)
+          file_path = f"stories/{today}.txt"
+
+          with open(file_path, "w", encoding="utf-8") as f:
+              f.write(story)
+
+          print(f"✅ Story saved to {file_path}")
+          PY
+
+      - name: Commit and push story
+        run: |
+          git config user.name "github-actions"
+          git config user.email "actions@github.com"
+          git add stories/*.txt || echo "No files to add"
+          git commit -m "Add daily AI story" || echo "No changes to commit"
+          git push
