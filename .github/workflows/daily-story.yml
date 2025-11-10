@@ -33,10 +33,13 @@ jobs:
 
           print("Requesting story from Hugging Face...")
 
-          model = "google/flan-t5-small"  # 🔹 Tam model adı
+          # 🔹 Router API ile tam uyumlu model:
+          model = "HuggingFaceH4/zephyr-7b-beta"
           api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
 
-          prompt = "Write a calming 3-minute bedtime story about stars and peace."
+          prompt = """You are a calm storyteller AI. 
+          Write a peaceful, relaxing bedtime story for adults about stars, dreams, and serenity. 
+          Keep it around 3 minutes long, gentle and inspiring."""
 
           headers = {
               "Authorization": f"Bearer {os.environ['HF_API_TOKEN']}",
@@ -49,12 +52,18 @@ jobs:
               print(f"❌ Error: {response.status_code} {response.text}")
               exit(1)
 
-          data = response.json()
-          story = ""
-          if isinstance(data, list) and "generated_text" in data[0]:
-              story = data[0]["generated_text"]
-          else:
-              story = str(data)
+          try:
+              data = response.json()
+              if isinstance(data, list) and "generated_text" in data[0]:
+                  story = data[0]["generated_text"]
+              elif isinstance(data, dict) and "generated_text" in data:
+                  story = data["generated_text"]
+              else:
+                  story = str(data)
+          except Exception as e:
+              print("❌ Failed to parse response:", e)
+              print(response.text)
+              exit(1)
 
           today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
           Path("stories").mkdir(exist_ok=True)
