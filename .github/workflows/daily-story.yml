@@ -34,12 +34,14 @@ jobs:
 
           print("Requesting story from Hugging Face...")
 
+          # MODEL ADINI BURADA DEĞİŞTİREBİLİRSİN
           model = "google/flan-t5-small"
-          api_url = f"https://api-inference.huggingface.co/models/{model}"
+          api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
 
-          prompt = """Write a short, soothing 3-minute bedtime story for adults about peace, stars, and calm dreams."""
+          prompt = """Write a short, relaxing bedtime story for adults about peace, stars, and gentle dreams. The story should be around 3 minutes long and help calm the mind."""
 
           headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
+
           response = requests.post(api_url, headers=headers, json={"inputs": prompt})
 
           if response.status_code != 200:
@@ -48,7 +50,6 @@ jobs:
 
           try:
               data = response.json()
-              # Model bazen dict döner, bazen list — iki durumu da ele alalım
               if isinstance(data, list) and "generated_text" in data[0]:
                   story = data[0]["generated_text"]
               elif isinstance(data, dict) and "generated_text" in data:
@@ -58,22 +59,3 @@ jobs:
           except Exception as e:
               print("❌ Failed to parse response:", e)
               print(response.text)
-              exit(1)
-
-          today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
-          Path("stories").mkdir(exist_ok=True)
-          file_path = f"stories/{today}.txt"
-
-          with open(file_path, "w", encoding="utf-8") as f:
-              f.write(story)
-
-          print(f"✅ Story saved to {file_path}")
-          PY
-
-      - name: Commit and push story
-        run: |
-          git config user.name "github-actions"
-          git config user.email "actions@github.com"
-          git add stories/*.txt || echo "No files to add"
-          git commit -m "Add daily AI story" || echo "No changes to commit"
-          git push
