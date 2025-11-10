@@ -10,7 +10,7 @@ jobs:
     runs-on: ubuntu-latest
 
     permissions:
-      contents: write  # Commit için gerekli izin
+      contents: write
 
     steps:
       - name: Checkout repo
@@ -34,10 +34,12 @@ jobs:
 
           print("Requesting story from Hugging Face...")
 
-          model = "google/flan-t5-small"
-          prompt = """Write a short, calming bedtime story for adults about stars, peace, and the night sky."""
+          # ✅ Desteklenen model
+          model = "mistralai/Mistral-7B-Instruct-v0.2"
 
-          # ✅ Yeni aktif endpoint (eski api-inference yerine)
+          prompt = """Write a 3-minute calm bedtime story for adults about peace, stars, and a quiet night. 
+          The story should be soothing, imaginative, and help the listener fall asleep peacefully."""
+
           api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
 
           headers = {
@@ -54,9 +56,10 @@ jobs:
           try:
               data = response.json()
               story = None
-              # flan-t5 gibi modeller genelde list döndürür
               if isinstance(data, list) and "generated_text" in data[0]:
                   story = data[0]["generated_text"]
+              elif isinstance(data, dict) and "generated_text" in data:
+                  story = data["generated_text"]
               else:
                   story = json.dumps(data, ensure_ascii=False)
           except Exception as e:
@@ -66,8 +69,8 @@ jobs:
 
           today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
           Path("stories").mkdir(exist_ok=True)
-
           file_path = f"stories/{today}.txt"
+
           with open(file_path, "w", encoding="utf-8") as f:
               f.write(story)
 
