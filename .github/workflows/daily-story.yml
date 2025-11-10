@@ -34,12 +34,12 @@ jobs:
 
           print("Requesting story from Hugging Face...")
 
-          model = "google/flan-t5-small"  # Model adı string olmalı
-          prompt = """Write a short, calming 3-minute bedtime story for adults about peace, stars, and a calm night."""
+          model = "google/flan-t5-small"
+          api_url = f"https://api-inference.huggingface.co/models/{model}"
+
+          prompt = """Write a short, soothing 3-minute bedtime story for adults about peace, stars, and calm dreams."""
 
           headers = {"Authorization": f"Bearer {os.environ['HF_API_TOKEN']}"}
-          api_url = f"https://router.huggingface.co/hf-inference/models/{model}"  # DÜZELTİLDİ
-
           response = requests.post(api_url, headers=headers, json={"inputs": prompt})
 
           if response.status_code != 200:
@@ -48,7 +48,13 @@ jobs:
 
           try:
               data = response.json()
-              story = data[0]["generated_text"]
+              # Model bazen dict döner, bazen list — iki durumu da ele alalım
+              if isinstance(data, list) and "generated_text" in data[0]:
+                  story = data[0]["generated_text"]
+              elif isinstance(data, dict) and "generated_text" in data:
+                  story = data["generated_text"]
+              else:
+                  story = str(data)
           except Exception as e:
               print("❌ Failed to parse response:", e)
               print(response.text)
@@ -56,8 +62,8 @@ jobs:
 
           today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
           Path("stories").mkdir(exist_ok=True)
-
           file_path = f"stories/{today}.txt"
+
           with open(file_path, "w", encoding="utf-8") as f:
               f.write(story)
 
