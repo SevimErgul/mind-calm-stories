@@ -3,13 +3,14 @@ name: Daily AI Sleep Story Generator
 on:
   schedule:
     - cron: "0 0 * * *" # Her gün UTC 00:00'da (Türkiye saatiyle 03:00)
-  workflow_dispatch:
+  workflow_dispatch: # Manuel tetikleme
 
 jobs:
   generate-story:
     runs-on: ubuntu-latest
+
     permissions:
-      contents: write
+      contents: write  # Commit için gerekli izin
 
     steps:
       - name: Checkout repo
@@ -28,18 +29,16 @@ jobs:
           HF_API_TOKEN: ${{ secrets.HF_API_TOKEN }}
         run: |
           python - <<'PY'
-          import requests, datetime, os
+          import requests, json, datetime, os
           from pathlib import Path
 
           print("Requesting story from Hugging Face...")
 
-          # 🔹 Router API ile tam uyumlu model:
-          model = "HuggingFaceH4/zephyr-7b-beta"
-          api_url = f"https://router.huggingface.co/hf-inference/models/{model}"
+          model = "google/flan-t5-small"  # Çalışan bir açık model
+          prompt = """Write a short, calming 3-minute bedtime story for adults about peace, stars, and a calm night."""
 
-          prompt = """You are a calm storyteller AI. 
-          Write a peaceful, relaxing bedtime story for adults about stars, dreams, and serenity. 
-          Keep it around 3 minutes long, gentle and inspiring."""
+          # Hugging Face Inference Endpoint (yeni, doğru adres)
+          api_url = f"https://api-inference.huggingface.co/models/{model}"
 
           headers = {
               "Authorization": f"Bearer {os.environ['HF_API_TOKEN']}",
@@ -54,12 +53,10 @@ jobs:
 
           try:
               data = response.json()
-              if isinstance(data, list) and "generated_text" in data[0]:
-                  story = data[0]["generated_text"]
-              elif isinstance(data, dict) and "generated_text" in data:
-                  story = data["generated_text"]
-              else:
-                  story = str(data)
+              # flan-t5 modelleri genelde bu formatta döner
+              story = data[0].get("generated_text", None)
+              if story is None:
+                  story = data
           except Exception as e:
               print("❌ Failed to parse response:", e)
               print(response.text)
@@ -67,10 +64,10 @@ jobs:
 
           today = datetime.datetime.utcnow().strftime("%Y-%m-%d")
           Path("stories").mkdir(exist_ok=True)
-          file_path = f"stories/{today}.txt"
 
+          file_path = f"stories/{today}.txt"
           with open(file_path, "w", encoding="utf-8") as f:
-              f.write(story)
+              f.write(str(story))
 
           print(f"✅ Story saved to {file_path}")
           PY
